@@ -2,6 +2,7 @@ package com.zlad.gradle.avrohugger
 
 import avrohugger.types.AvroScalaTypes
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
@@ -28,16 +29,19 @@ class GenerateScalaTask extends SourceTask {
     final DirectoryProperty destinationDir = project.objects.directoryProperty()
 
     @Input
-    final Property<AvroScalaTypes> customTypes =  project.objects.property(AvroScalaTypes)
+    final Property<AvroScalaTypes> customTypes = project.objects.property(AvroScalaTypes)
 
     @Input
-    final MapProperty<String, String> customNamespaces = project.objects.mapProperty(String,String)
+    final MapProperty<String, String> customNamespaces = project.objects.mapProperty(String, String)
 
     @Input
-    final Property<ScalaSourceFormat> sourceFormat =  project.objects.property(ScalaSourceFormat)
+    final Property<ScalaSourceFormat> sourceFormat = project.objects.property(ScalaSourceFormat)
 
     @Input
-    final Property<Boolean> restrictedFieldNumber =  project.objects.property(Boolean)
+    final Property<Boolean> restrictedFieldNumber = project.objects.property(Boolean)
+
+    @Input
+    final Property<Integer> batchSize = project.objects.property(Integer)
 
     @Inject
     GenerateScalaTask(WorkerExecutor workerExecutor) {
@@ -50,20 +54,20 @@ class GenerateScalaTask extends SourceTask {
         logger.info("Starting avro scala classes generation.")
         final fileSource = new FileSource(source)
         final files = [
-            "Avro schema":   fileSource.getAvscFiles(),
-            "Avro IDL":      fileSource.getAvdlFiles(),
-            "Avro datafile": fileSource.getAvroFiles(),
-            "Avro protocol": fileSource.getAvprFiles()
+                "Avro schema"  : fileSource.getAvscFiles(),
+                "Avro IDL"     : fileSource.getAvdlFiles(),
+                "Avro datafile": fileSource.getAvroFiles(),
+                "Avro protocol": fileSource.getAvprFiles()
         ]
         submitWork(createGeneratorFactory(), destinationDir.get().asFile.getAbsolutePath(), files)
     }
 
     private GeneratorFactory createGeneratorFactory() {
         new GeneratorFactory(
-            sourceFormat: sourceFormat.get(),
-            types: customTypes.get(),
-            customNamespaces: customNamespaces.get(),
-            restrictedFieldNumber: restrictedFieldNumber.get()
+                sourceFormat: sourceFormat.get(),
+                types: customTypes.get(),
+                customNamespaces: customNamespaces.get(),
+                restrictedFieldNumber: restrictedFieldNumber.get()
         )
     }
 
@@ -71,10 +75,21 @@ class GenerateScalaTask extends SourceTask {
     // because avrohugger is creating (temp) directory `target` which is not deleted while gradle daemon is alive
     // when run as separate process `target` is created under `~/.gradle/workers/` and it's minimally not polluting users project
     private def submitWork = { GeneratorFactory generatorFactory, String destination, Map<String, Collection<File>> inputFiles ->
-        if ( ! inputFiles.isEmpty()) {
-            workerExecutor.submit(Generate) { config ->
-                config.setIsolationMode(sourceFormat.get() == ScalaSourceFormat.Standard ? IsolationMode.NONE : IsolationMode.PROCESS)
-                config.params(generatorFactory, destination, inputFiles)
+        if (!inputFiles.isEmpty()) {
+            if (batchSize.isPresent() && batchSize.get() > 0) {
+                inputFiles.each { schemaType, schemaFiles ->
+                    schemaFiles.collate(batchSize.get()).each { batchedFiles ->
+                        workerExecutor.submit(Generate) {
+                            config ->
+                                config.setIsolationMode(sourceFormat.get() == ScalaSourceFormat.Standard ? IsolationMode.NONE : IsolationMode.PROCESS)
+                                config.params(generatorFactory, destination, [(schemaType): batchedFiles])
+                        }
+                    }
+                }
+            } else workerExecutor.submit(Generate) {
+                config ->
+                    config.setIsolationMode(sourceFormat.get() == ScalaSourceFormat.Standard ? IsolationMode.NONE : IsolationMode.PROCESS)
+                    config.params(generatorFactory, destination, inputFiles)
             }
         }
     }
