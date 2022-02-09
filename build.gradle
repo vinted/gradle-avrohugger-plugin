@@ -3,6 +3,7 @@ plugins {
     id 'java-gradle-plugin'
     id 'com.gradle.plugin-publish' version '0.11.0'
     id 'com.palantir.git-version' version '0.11.0'
+    id 'maven-publish'
 }
 
 repositories {
@@ -10,12 +11,11 @@ repositories {
 }
 
 group = 'com.zlad.gradle'
-
-version = resolveVersion()
+version = '0.6.0'
 
 dependencies {
-    implementation "com.julianpeeters:avrohugger-core_$scalaMajorVersion:$avrohuggerVersion"
-    implementation "com.julianpeeters:avrohugger-filesorter_$scalaMajorVersion:$avrohuggerVersion"
+    compile "com.julianpeeters:avrohugger-core_$scalaMajorVersion:$avrohuggerVersion"
+    compile "com.julianpeeters:avrohugger-filesorter_$scalaMajorVersion:$avrohuggerVersion"
 
     testImplementation("org.spockframework:spock-core:$spockVersion") {
         exclude group: 'org.codehaus.groovy'
@@ -37,6 +37,12 @@ pluginBundle {
     website = 'https://github.com/zladovan/gradle-avrohugger-plugin'
     vcsUrl = 'https://github.com/zladovan/gradle-avrohugger-plugin.git'
     tags = ['scala', 'avro']
+}
+
+jar {
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
 }
 
 def resolveVersion() {
