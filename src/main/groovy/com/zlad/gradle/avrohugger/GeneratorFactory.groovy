@@ -29,7 +29,8 @@ class GeneratorFactory implements Serializable {
                 Some.apply(types),
                 namespaces,
                 restrictedFieldNumber,
-                Thread.currentThread().contextClassLoader
+                Thread.currentThread().contextClassLoader,
+                "2.12"
         )
     }
 }
