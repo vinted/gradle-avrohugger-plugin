@@ -13,6 +13,7 @@ class GeneratorFactory implements Serializable {
     AvroScalaTypes types
     Map<String, String> customNamespaces
     boolean restrictedFieldNumber
+    String targetScalaPartialVersion
 
     Generator create() {
         final format = sourceFormat.toAvrohuggerSourceFormat()
@@ -22,15 +23,16 @@ class GeneratorFactory implements Serializable {
                 - format: $format
                 - types: $types
                 - namespaces: $namespaces
-                - restricted: $restrictedFieldNumber
+                - targetScalaPartialVersion: $targetScalaPartialVersion
         """.stripIndent())
         new Generator(
                 format,
                 Some.apply(types),
                 namespaces,
-                restrictedFieldNumber,
+                // there is a restriction about maximum fields count for case classes in scala 2.10 and older
+                Integer.parseInt(targetScalaPartialVersion.split("\\.")[1]) < 11,
                 Thread.currentThread().contextClassLoader,
-                "2.12"
+                targetScalaPartialVersion
         )
     }
 }

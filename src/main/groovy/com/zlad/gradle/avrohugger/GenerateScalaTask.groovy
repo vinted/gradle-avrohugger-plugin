@@ -38,7 +38,7 @@ class GenerateScalaTask extends SourceTask {
     final Property<ScalaSourceFormat> sourceFormat = project.objects.property(ScalaSourceFormat)
 
     @Input
-    final Property<Boolean> restrictedFieldNumber = project.objects.property(Boolean)
+    final Property<String> targetScalaPartialVersion =  project.objects.property(String)
 
     @Input
     final Property<Integer> batchSize = project.objects.property(Integer)
@@ -54,42 +54,45 @@ class GenerateScalaTask extends SourceTask {
         logger.info("Starting avro scala classes generation.")
         final fileSource = new FileSource(source)
         final files = [
-                "Avro schema"  : fileSource.getAvscFiles(),
-                "Avro IDL"     : fileSource.getAvdlFiles(),
-                "Avro datafile": fileSource.getAvroFiles(),
-                "Avro protocol": fileSource.getAvprFiles()
+            "Avro schema":   fileSource.getAvscFiles(),
+            "Avro IDL":      fileSource.getAvdlFiles(),
+            "Avro datafile": fileSource.getAvroFiles(),
+            "Avro protocol": fileSource.getAvprFiles()
         ]
-        submitWork(createGeneratorFactory(), destinationDir.get().asFile.getAbsolutePath(), files)
+        submitWork(createGeneratorFactory(), destinationDir.get().asFile.getAbsolutePath(), files, sourceFormat.get())
     }
 
     private GeneratorFactory createGeneratorFactory() {
         new GeneratorFactory(
-                sourceFormat: sourceFormat.get(),
-                types: customTypes.get(),
-                customNamespaces: customNamespaces.get(),
-                restrictedFieldNumber: restrictedFieldNumber.get()
+            sourceFormat: sourceFormat.get(),
+            types: customTypes.get(),
+            customNamespaces: customNamespaces.get(),
+            targetScalaPartialVersion: targetScalaPartialVersion.get()
         )
     }
 
     // when SpecificRecord or Scavro format used there is need to run generating in separate process
     // because avrohugger is creating (temp) directory `target` which is not deleted while gradle daemon is alive
     // when run as separate process `target` is created under `~/.gradle/workers/` and it's minimally not polluting users project
-    private def submitWork = { GeneratorFactory generatorFactory, String destination, Map<String, Collection<File>> inputFiles ->
-        if (!inputFiles.isEmpty()) {
+    private def submitWork = { GeneratorFactory generatorFactory, String destination, Map<String, Collection<File>> inputFiles, ScalaSourceFormat fmt ->
+        if ( ! inputFiles.isEmpty()) {
+            def queue = fmt == ScalaSourceFormat.Standard ? workerExecutor.noIsolation(): workerExecutor.processIsolation()
             if (batchSize.isPresent() && batchSize.get() > 0) {
                 inputFiles.each { schemaType, schemaFiles ->
                     schemaFiles.collate(batchSize.get()).each { batchedFiles ->
-                        workerExecutor.submit(Generate) {
-                            config ->
-                                config.setIsolationMode(sourceFormat.get() == ScalaSourceFormat.Standard ? IsolationMode.NONE : IsolationMode.PROCESS)
-                                config.params(generatorFactory, destination, [(schemaType): batchedFiles])
+                        queue.submit(Generate) {
+                            parameters ->
+                                parameters.setGeneratorFactory(generatorFactory)
+                                parameters.setDestinationDir(destination)
+                                parameters.setInputFiles([(schemaType): batchedFiles])
                         }
                     }
                 }
-            } else workerExecutor.submit(Generate) {
-                config ->
-                    config.setIsolationMode(sourceFormat.get() == ScalaSourceFormat.Standard ? IsolationMode.NONE : IsolationMode.PROCESS)
-                    config.params(generatorFactory, destination, inputFiles)
+            } else queue.submit(Generate) {
+                parameters ->
+                    parameters.setGeneratorFactory(generatorFactory)
+                    parameters.setDestinationDir(destination)
+                    parameters.setInputFiles(inputFiles)
             }
         }
     }
