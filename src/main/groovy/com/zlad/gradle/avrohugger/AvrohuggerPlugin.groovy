@@ -44,8 +44,8 @@ class AvrohuggerPlugin implements Plugin<Project> {
             }
             customNamespaces = extension.namespaceMapping
             sourceFormat = extension.sourceFormat
-            restrictedFieldNumber = providerFactory.provider(new ScalaVersionBelow2_11(project))
             batchSize = extension.batchSize
+            targetScalaPartialVersion = providerFactory.provider(new ScalaVersion(project))
         }
     }
 

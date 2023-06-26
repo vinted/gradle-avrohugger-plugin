@@ -8,11 +8,11 @@ plugins {
 
 repositories {
     mavenCentral()
-    maven { url 'https://nexus.vinted.net/repository/maven-hosted-oom/' }
+    maven { url 'https://maven.cloudsmith.io/vinted/maven-hosted-oom' }
 }
 
 group = 'com.zlad.gradle'
-version = '0.7.1'
+version = '0.7.2'
 
 dependencies {
     compile "com.julianpeeters:avrohugger-core_$scalaMajorVersion:$avrohuggerVersion"
