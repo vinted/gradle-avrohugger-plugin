@@ -12,7 +12,6 @@ class GeneratorFactory implements Serializable {
     ScalaSourceFormat sourceFormat
     AvroScalaTypes types
     Map<String, String> customNamespaces
-    boolean restrictedFieldNumber
     String targetScalaPartialVersion
 
     Generator create() {
