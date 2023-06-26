@@ -8,7 +8,7 @@ plugins {
 
 repositories {
     mavenCentral()
-    maven { url 'https://nexus.vinted.net/repository/maven-hosted-oom/' }
+    maven { url 'https://maven.cloudsmith.io/vinted/maven-hosted-oom' }
 }
 
 group = 'com.zlad.gradle'
