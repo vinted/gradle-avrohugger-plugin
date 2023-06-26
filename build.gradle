@@ -12,7 +12,7 @@ repositories {
 }
 
 group = 'com.zlad.gradle'
-version = '0.7.1'
+version = '0.7.2'
 
 dependencies {
     compile "com.julianpeeters:avrohugger-core_$scalaMajorVersion:$avrohuggerVersion"
